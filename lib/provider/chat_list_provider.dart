@@ -1,13 +1,54 @@
+import 'dart:convert';
 
 import 'package:chat_vendor/model/one_to_one_chat_model.dart';
+import 'package:chat_vendor/model/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart';
 
 import '../const/const_value.dart';
 import '../model/chat_user_model.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:http/http.dart' as http;
 
 class UserChatProvider with ChangeNotifier {
+  List<userModel> _listOfAllData = [];
+
+  Future<List<userModel>> fetchContactDetails() async {
+    /* Initilized the URL to Get the response */
+    final response = await http
+        .get(Uri.parse('https://itsolutionsguides.com/api/contact_details'));
+    /* Storing the data from api in and decode the value  */
+    var jsondData = json.decode(response.body);
+    /*
+    * In this step api they didn't did the json encode in api response so the value are looking like
+      this ({\"id\":1,\"name\":\"test\",\"email\":\"aaa@gmalil.com\",\"created_at\":\"2023-07-31T08:14:25.000000Z\"})
+      So here i have removed all //
+      and store in another variable.
+    * This step is not mandaitory when you get api response like ({id: 1, name: test, email: aaa@gmalil.com, created_at: 2023-07-31T08:14:25.000000Z})
+   */
+    var apiResponse = jsondData['data'].replaceAll(RegExp(r'\\'), '');
+    if (response.statusCode == 200) {
+      /* Again decoding the value and store in another variable */
+      var finalResponse = jsonDecode(apiResponse);
+
+      print(finalResponse);
+       /* Storing all data with the help of for loop */
+      for (var i = 0; i < finalResponse.length; i++) {
+        print(finalResponse[i]["name"]);
+        _listOfAllData.add(userModel(
+            id: finalResponse[i]['id'].toString(),
+            name: finalResponse[i]['name'].toString(),
+            email: finalResponse[i]['email'].toString(),
+            created: finalResponse[i]['created_at'].toString()));
+      }
+      print(_listOfAllData.length);
+     
+      return _listOfAllData;
+    } else {
+      throw Exception('Failed to load contact details');
+    }
+  }
+
   TextEditingController searchController = TextEditingController();
   List<ChatUserModel> _allChatUserData = [];
   List<ChatUserModel> _allSearchUserData = [];
@@ -60,14 +101,11 @@ class UserChatProvider with ChangeNotifier {
     );
   }
 
-
-
   Future<void> allSocketConnection() async {}
 
   void initializeSocket() {
     // Initialize Socket.IO connection
     socket;
-   
 
     // Connect to server
     socket.connect();
@@ -158,15 +196,15 @@ class UserChatProvider with ChangeNotifier {
         "page": page,
       });
       socket.on('chat_list', (data) {
-      var responseData = data['data'];
-      print('Received datas: $responseData');
-      _allChatUserData = List<ChatUserModel>.from(
-          responseData.map((item) => ChatUserModel.fromJson(item)));
+        var responseData = data['data'];
+        print('Received datas: $responseData');
+        _allChatUserData = List<ChatUserModel>.from(
+            responseData.map((item) => ChatUserModel.fromJson(item)));
 
-      // Data loaded, set isLoading to false
-      isLoading = false;
-      notifyListeners();
-    });
+        // Data loaded, set isLoading to false
+        isLoading = false;
+        notifyListeners();
+      });
 
       // Increment page number for next pagination
       page++;
